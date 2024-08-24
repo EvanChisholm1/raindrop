@@ -1,15 +1,3 @@
 # raindrop
 
-To install dependencies:
-
-```bash
-bun install
-```
-
-To run:
-
-```bash
-bun run index.ts
-```
-
-This project was created using `bun init` in bun v1.1.23. [Bun](https://bun.sh) is a fast all-in-one JavaScript runtime.
+A program to simulate the classic debate of whether or not it is better to run in the rain to avoid getting wet or stay in spot.
