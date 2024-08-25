@@ -39,6 +39,8 @@ const getNumDrops = ({
 type Vec2D = { x: number; y: number };
 type Vec3D = { x: number; y: number; z: number };
 
+// width is x
+// length is y
 const getDropLocations = (
     nDrops: number,
     areaWidth: number,
@@ -67,37 +69,109 @@ type SimulateOptions = {
     rainfallRate: number;
     dropVolume: number;
     initialHeight: number;
+    rainfallSpeed: number;
 };
 
 // maybe i'm taking the fp a little too far
 // should a simulator be recursive like this? prob not.
 // is it more fun? hell yeah!
 // returns volume of rain to hit the guy
-const simulate = ({
-    drops,
-    personLocation,
-    personRadius,
-    timeStep,
-    speed,
-    areaLength,
-    areaWidth,
-    rainfallRate,
-    dropVolume,
-    initialHeight,
-}: SimulateOptions): number => {
-    // const validDrops = drops.filter(d)
+const simulate = (options: SimulateOptions): number => {
+    const {
+        drops,
+        personLocation,
+        personRadius,
+        timeStep,
+        speed,
+        areaLength,
+        areaWidth,
+        rainfallRate,
+        dropVolume,
+        initialHeight,
+        rainfallSpeed,
+    } = options;
+
+    const { intersectingCount, remaining } = drops.reduce<{
+        intersectingCount: number;
+        remaining: Vec3D[];
+    }>(
+        ({ intersectingCount, remaining }, d) => {
+            if (distance3D(personLocation, d) <= personRadius) {
+                return { intersectingCount: intersectingCount + 1, remaining };
+            } else {
+                return { intersectingCount, remaining: [...remaining, d] };
+            }
+        },
+        { intersectingCount: 0, remaining: [] }
+    );
+
+    if (personLocation.x > areaWidth && personLocation.y > areaLength)
+        return intersectingCount;
+
+    const additionalDrops = dropsTo3D(
+        getDropLocations(
+            getNumDrops({
+                timeStep,
+                areaLength,
+                areaWidth,
+                rainfallRate,
+                dropVolume,
+            }),
+            areaWidth,
+            areaLength
+        ),
+        initialHeight
+    );
+
+    const diagonalMagnitude = Math.sqrt(areaLength ** 2 + areaWidth ** 2);
+    const directionUnit: Vec2D = {
+        x: areaWidth / diagonalMagnitude,
+        y: areaLength / diagonalMagnitude,
+    };
+
+    const updatedPosition = {
+        ...personLocation,
+        x: personLocation.x + directionUnit.x * speed * timeStep,
+        y: personLocation.y + directionUnit.y * speed * timeStep,
+    };
+
+    const nextDrops = [...remaining, ...additionalDrops]
+        .map((d) => ({
+            ...d,
+            z: d.z - rainfallSpeed,
+        }))
+        .filter((d) => d.z > 0);
+    // console.log(nextDrops.length);
+
+    return (
+        simulate({
+            ...options,
+            drops: nextDrops,
+            personLocation: updatedPosition,
+        }) + intersectingCount
+    );
 };
 
-console.log(
-    getDropLocations(
-        getNumDrops({
-            timeStep: 0.1,
+for (let i = 1; i <= 10; i++) {
+    let avg = 0;
+
+    for (let k = 0; k < 5; k++) {
+        const volume = simulate({
             areaLength: 10,
             areaWidth: 10,
-            rainfallRate: 5,
+            drops: [],
             dropVolume,
-        }),
-        10,
-        10
-    )
-);
+            initialHeight: 10,
+            personLocation: { x: 0, y: 0, z: 1 },
+            personRadius: 1,
+            rainfallRate,
+            rainfallSpeed: 9,
+            speed: i,
+            timeStep: 0.01,
+        });
+
+        avg += volume / 5;
+    }
+
+    console.log(`speed: ${i}, volume: ${avg}`);
+}
